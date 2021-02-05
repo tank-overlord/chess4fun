@@ -7,23 +7,11 @@
 import sys
 
 import PySide2
-from PySide2.QtWebEngineWidgets import QWebEngineView, QWebEnginePage, QWebEngineProfile
 from PySide2.QtWidgets import QApplication, QMainWindow, QWidget, QGridLayout
+from PySide2.QtSvg import QSvgWidget
 
-class web_engine_page(QWebEnginePage):
-    def __init__(self, profile, parent):
-        super().__init__(profile, parent) # parent=None
-    def javaScriptConsoleMessage(self, *args, **kwargs):
-        pass
-
-class web_view(QWebEngineView):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.web_engine_profile = QWebEngineProfile()
-        self.web_engine_page = web_engine_page(profile=self.web_engine_profile, parent=self)
-        self.setPage(self.web_engine_page)
-        if not self.page().profile().isOffTheRecord():
-            raise RuntimeError("the profile should be off-the-record.")
+import chess
+import chess.svg
 
 
 class app_window(QMainWindow):
@@ -33,26 +21,61 @@ class app_window(QMainWindow):
         # screen
         screen = self.app.primaryScreen()
         self.dpi = 72/screen.devicePixelRatio()
-        self.width = screen.availableGeometry().width() * 1.00
-        self.height = screen.availableGeometry().height() * 0.80
+        #self.width = screen.availableGeometry().width() * 0.60
+        #self.height = screen.availableGeometry().height() * 0.60
         # central widget
         self.UI = UI(app_window=self, dpi=self.dpi)
         self.setCentralWidget(self.UI)
         self.setWindowTitle("Chess for fun!")
-        self.resize(self.width, self.height)
+        #self.resize(self.width, self.height)
+
+
+class chess_board_widget(QSvgWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.board = chess.Board()
+        self.load(chess.svg.board(self.board, coordinates=False, size=600).encode("UTF-8"))
+        self._square_selected = False
+        #self.setGeometry(0, 0, 300, 300) 
+
+    def mouseMoveEvent(self, event):
+        #print(f"move: {event.pos()}")
+        super().mouseMoveEvent(event)
+
+    def mousePressEvent(self, event):
+        _rank =     (event.pos().x() // 75)
+        _file = 7 - (event.pos().y() // 75)
+        _square = _file*8 + _rank
+        #print(f"press: {event.pos()}")
+        #print(f"{chess.square_name(_square)}")
+        self.load(chess.svg.board(self.board, coordinates=False, size=600, arrows=[(_square, _square)]).encode("UTF-8"))
+        self._square_selected = True
+        self._from_square = _square
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        _rank =     (event.pos().x() // 75)
+        _file = 7 - (event.pos().y() // 75)
+        _square = _file*8 + _rank
+        if self._square_selected:
+            self._to_square = _square
+            if self._from_square != self._to_square:
+                this_move = chess.Move(self._from_square, self._to_square)
+                if this_move in self.board.legal_moves:
+                    print(f"{this_move.uci()}")
+                    self.board.push(this_move)
+                    self.load(chess.svg.board(self.board, coordinates=False, size=600, lastmove=this_move).encode("UTF-8"))
+                self._square_selected = False
+        #print(f"released: {event.pos()}")
+        super().mouseReleaseEvent(event)
 
 class UI(QWidget):
     def __init__(self, app_window=None, dpi=None, *args, **kwargs):
         super().__init__(parent=app_window, *args, **kwargs)
         self.app_window = app_window
-        self.webview = web_view(parent=self)
-        import chess
-        import chess.svg
-        board = chess.Board("8/8/8/8/4N3/8/8/8 w - - 0 1")
-        squares = board.attacks(chess.E4)
-        self.webview.setHtml(chess.svg.board(board, squares=squares, size=350))
+        self.chessboard_widget = chess_board_widget(parent=self)
         self.layout = QGridLayout()
-        self.layout.addWidget(self.webview, 0, 0, 1, 1)
+        self.layout.addWidget(self.chessboard_widget, 0, 0, 1, 1)
         self.setLayout(self.layout)
 
 def main():
