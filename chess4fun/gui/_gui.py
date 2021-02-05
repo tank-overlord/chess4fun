@@ -60,9 +60,9 @@ class chess_board_widget(QSvgWidget):
         super().mouseMoveEvent(event)
 
     def mousePressEvent(self, event):
-        _rank =     (event.pos().x() // 75)
-        _file = 7 - (event.pos().y() // 75)
-        _square = _file*8 + _rank
+        _file_idx =     (event.pos().x() // 75)
+        _rank_idx = 7 - (event.pos().y() // 75)
+        _square = chess.square(_file_idx, _rank_idx)
         #print(f"press: {event.pos()}")
         #print(f"{chess.square_name(_square)}")
         self.load(chess.svg.board(self.board, coordinates=False, size=600, arrows=[(_square, _square)]).encode("UTF-8"))
@@ -72,9 +72,9 @@ class chess_board_widget(QSvgWidget):
 
     def mouseReleaseEvent(self, event):
         global illegal_move_sound
-        _rank =     (event.pos().x() // 75)
-        _file = 7 - (event.pos().y() // 75)
-        _square = _file*8 + _rank
+        _file_idx =     (event.pos().x() // 75)
+        _rank_idx = 7 - (event.pos().y() // 75)
+        _square = chess.square(_file_idx, _rank_idx)
         if self._square_selected:
             self._to_square = _square
             if self._from_square != self._to_square:
