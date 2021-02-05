@@ -13,6 +13,23 @@ from PySide2.QtSvg import QSvgWidget
 import chess
 import chess.svg
 
+import pathlib
+import os
+
+import pygame
+
+pygame.mixer.init()
+
+curr_dir = pathlib.Path(__file__).parent.absolute()
+os.chdir(curr_dir)
+
+# https://freesound.org/people/Splashdust/sounds/67454/
+# https://creativecommons.org/publicdomain/zero/1.0/
+illegal_move_sound = pygame.mixer.Sound("illegal_move.wav")
+piece_move_sound = pygame.mixer.Sound("piece_move.wav")
+
+illegal_move_sound.set_volume(0.5)
+piece_move_sound.set_volume(1.0)
 
 class app_window(QMainWindow):
     def __init__(self, app=None, *args, **kwargs):
@@ -54,6 +71,7 @@ class chess_board_widget(QSvgWidget):
         super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
+        global illegal_move_sound
         _rank =     (event.pos().x() // 75)
         _file = 7 - (event.pos().y() // 75)
         _square = _file*8 + _rank
@@ -62,9 +80,13 @@ class chess_board_widget(QSvgWidget):
             if self._from_square != self._to_square:
                 this_move = chess.Move(self._from_square, self._to_square)
                 if this_move in self.board.legal_moves:
+                    piece_move_sound.play()
                     print(f"{this_move.uci()}")
                     self.board.push(this_move)
                     self.load(chess.svg.board(self.board, coordinates=False, size=600, lastmove=this_move).encode("UTF-8"))
+                else:
+                    illegal_move_sound.play()
+                    self.load(chess.svg.board(self.board, coordinates=False, size=600,                   ).encode("UTF-8"))
                 self._square_selected = False
         #print(f"released: {event.pos()}")
         super().mouseReleaseEvent(event)
