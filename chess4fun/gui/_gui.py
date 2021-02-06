@@ -7,7 +7,7 @@
 import sys
 
 import PySide2
-from PySide2.QtWidgets import QApplication, QMainWindow, QWidget, QGridLayout
+from PySide2.QtWidgets import QApplication, QMainWindow, QWidget, QGridLayout, QDialog, QPushButton
 from PySide2.QtSvg import QSvgWidget
 
 import chess
@@ -34,12 +34,16 @@ piece_move_sound = pygame.mixer.Sound("piece_move.wav")
 check_sound = pygame.mixer.Sound("check.wav")
 check_mate_sound = pygame.mixer.Sound("check_mate.wav")
 stalemate_sound = pygame.mixer.Sound("stalemate.wav")
+insufficient_material_sound = pygame.mixer.Sound("insufficient_material.wav")
+gameover_sound = pygame.mixer.Sound("gameover.wav")
 
 illegal_move_sound.set_volume(1.0)
 piece_move_sound.set_volume(1.0)
 check_sound.set_volume(1.0)
 check_mate_sound.set_volume(1.0)
 stalemate_sound.set_volume(1.0)
+insufficient_material_sound.set_volume(1.0)
+gameover_sound.set_volume(1.0)
 
 class app_window(QMainWindow):
     def __init__(self, app=None, *args, **kwargs):
@@ -57,13 +61,52 @@ class app_window(QMainWindow):
         #self.resize(self.width, self.height)
 
 
+class PromotionDialog(QDialog):
+    def __init__(self, parent=None, *args, **kwargs):
+        super().__init__(parent=parent, *args, **kwargs)
+        self.resize(200,100)
+        self.setWindowTitle("Promotion")
+        self.queen_promotion_pushbutton = QPushButton('Queen', parent=self)
+        self.rook_promotion_pushbutton = QPushButton('Rook', parent=self)
+        self.bishop_promotion_pushbutton = QPushButton('Bishop', parent=self)
+        self.knight_promotion_pushbutton = QPushButton('Knight', parent=self)
+        self.layout = QGridLayout()
+        self.layout.addWidget(self.queen_promotion_pushbutton,  0, 0)
+        self.layout.addWidget(self.rook_promotion_pushbutton ,  1, 0)
+        self.layout.addWidget(self.bishop_promotion_pushbutton, 2, 0)
+        self.layout.addWidget(self.knight_promotion_pushbutton, 3, 0)
+        self.setLayout(self.layout)
+        self.promotion = chess.QUEEN # default
+        self.queen_promotion_pushbutton.clicked.connect(self._queen_promotion)
+        self.rook_promotion_pushbutton.clicked.connect(self._rook_promotion)
+        self.bishop_promotion_pushbutton.clicked.connect(self._bishop_promotion)
+        self.knight_promotion_pushbutton.clicked.connect(self._knight_promotion)
+
+    def _queen_promotion(self):
+        self.promotion = chess.QUEEN
+        self.hide()
+
+    def _rook_promotion(self):
+        self.promotion = chess.ROOK
+        self.hide()
+
+    def _bishop_promotion(self):
+        self.promotion = chess.BISHOP
+        self.hide()
+
+    def _knight_promotion(self):
+        self.promotion = chess.KNIGHT
+        self.hide()
+    
+
 class chess_board_widget(QSvgWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.board = chess.Board()
         self.load(chess.svg.board(self.board, coordinates=False, size=600).encode("UTF-8"))
         self._square_selected = False
-        #self.setGeometry(0, 0, 300, 300) 
+        self.promotion_dialog = PromotionDialog(parent=self)
+        self.variation = []
 
     def mouseMoveEvent(self, event):
         #print(f"move: {event.pos()}")
@@ -88,19 +131,32 @@ class chess_board_widget(QSvgWidget):
         if self._square_selected:
             self._to_square = _square
             if self._from_square != self._to_square:
-                this_move = chess.Move(self._from_square, self._to_square)
+                this_potential_promotion_move = chess.Move(from_square = self._from_square, to_square = self._to_square, promotion = chess.QUEEN)
+                if this_potential_promotion_move in self.board.legal_moves:
+                    self.promotion_dialog.exec_()
+                    this_move = chess.Move(from_square = self._from_square, to_square = self._to_square, promotion = self.promotion_dialog.promotion)
+                else:
+                    this_move = chess.Move(from_square = self._from_square, to_square = self._to_square, promotion = None)
                 if this_move in self.board.legal_moves:
-                    print(f"{this_move.uci()}")
+                    self.variation.append(this_move)
+                    print(f"\nthis move (UCI): {this_move.uci()}\nSAN: {chess.Board().variation_san(self.variation)}")
                     self.board.push(this_move)
-                    if self.board.is_checkmate():
-                        self.load(chess.svg.board(self.board, coordinates=False, size=600, check=self.board.king(self.board.turn), lastmove=this_move).encode("UTF-8"))
-                        check_mate_sound.play()
+                    if self.board.is_game_over():
+                        if self.board.is_insufficient_material():
+                            self.load(chess.svg.board(self.board, coordinates=False, size=600, lastmove=this_move).encode("UTF-8"))
+                            insufficient_material_sound.play()
+                        elif self.board.is_checkmate():
+                            self.load(chess.svg.board(self.board, coordinates=False, size=600, check=self.board.king(self.board.turn), lastmove=this_move).encode("UTF-8"))
+                            check_mate_sound.play()
+                        elif self.board.is_stalemate():
+                            self.load(chess.svg.board(self.board, coordinates=False, size=600, lastmove=this_move).encode("UTF-8"))
+                            stalemate_sound.play()
+                        else:
+                            self.load(chess.svg.board(self.board, coordinates=False, size=600, lastmove=this_move).encode("UTF-8"))
+                            gameover_sound.play()
                     elif self.board.is_check():
                         self.load(chess.svg.board(self.board, coordinates=False, size=600, check=self.board.king(self.board.turn), lastmove=this_move).encode("UTF-8"))
                         check_sound.play()
-                    elif self.board.is_stalemate():
-                        self.load(chess.svg.board(self.board, coordinates=False, size=600, lastmove=this_move).encode("UTF-8"))
-                        stalemate_sound.play()
                     else:
                         self.load(chess.svg.board(self.board, coordinates=False, size=600, lastmove=this_move).encode("UTF-8"))
                         piece_move_sound.play()
@@ -111,6 +167,7 @@ class chess_board_widget(QSvgWidget):
         #print(f"released: {event.pos()}")
         super().mouseReleaseEvent(event)
 
+
 class UI(QWidget):
     def __init__(self, app_window=None, dpi=None, *args, **kwargs):
         super().__init__(parent=app_window, *args, **kwargs)
@@ -119,6 +176,7 @@ class UI(QWidget):
         self.layout = QGridLayout()
         self.layout.addWidget(self.chessboard_widget, 0, 0, 1, 1)
         self.setLayout(self.layout)
+
 
 def main():
     app = QApplication(sys.argv)
