@@ -26,10 +26,20 @@ os.chdir(curr_dir)
 # https://freesound.org/people/Splashdust/sounds/67454/
 # https://creativecommons.org/publicdomain/zero/1.0/
 illegal_move_sound = pygame.mixer.Sound("illegal_move.wav")
+
+# https://freesound.org/people/mh2o/sounds/351518/
+# https://creativecommons.org/publicdomain/zero/1.0/
 piece_move_sound = pygame.mixer.Sound("piece_move.wav")
 
-illegal_move_sound.set_volume(0.5)
+check_sound = pygame.mixer.Sound("check.wav")
+check_mate_sound = pygame.mixer.Sound("check_mate.wav")
+stalemate_sound = pygame.mixer.Sound("stalemate.wav")
+
+illegal_move_sound.set_volume(1.0)
 piece_move_sound.set_volume(1.0)
+check_sound.set_volume(1.0)
+check_mate_sound.set_volume(1.0)
+stalemate_sound.set_volume(1.0)
 
 class app_window(QMainWindow):
     def __init__(self, app=None, *args, **kwargs):
@@ -60,8 +70,8 @@ class chess_board_widget(QSvgWidget):
         super().mouseMoveEvent(event)
 
     def mousePressEvent(self, event):
-        _file_idx =     (event.pos().x() // 75)
-        _rank_idx = 7 - (event.pos().y() // 75)
+        _file_idx =     (event.pos().x() // 75)   # 'A' - 'H', col
+        _rank_idx = 7 - (event.pos().y() // 75)   # 1 - 8, row
         _square = chess.square(_file_idx, _rank_idx)
         #print(f"press: {event.pos()}")
         #print(f"{chess.square_name(_square)}")
@@ -72,21 +82,31 @@ class chess_board_widget(QSvgWidget):
 
     def mouseReleaseEvent(self, event):
         global illegal_move_sound
-        _file_idx =     (event.pos().x() // 75)
-        _rank_idx = 7 - (event.pos().y() // 75)
+        _file_idx =     (event.pos().x() // 75)   # 'A' - 'H', col
+        _rank_idx = 7 - (event.pos().y() // 75)   # 1 - 8, row
         _square = chess.square(_file_idx, _rank_idx)
         if self._square_selected:
             self._to_square = _square
             if self._from_square != self._to_square:
                 this_move = chess.Move(self._from_square, self._to_square)
                 if this_move in self.board.legal_moves:
-                    piece_move_sound.play()
                     print(f"{this_move.uci()}")
                     self.board.push(this_move)
-                    self.load(chess.svg.board(self.board, coordinates=False, size=600, lastmove=this_move).encode("UTF-8"))
+                    if self.board.is_checkmate():
+                        self.load(chess.svg.board(self.board, coordinates=False, size=600, check=self.board.king(self.board.turn), lastmove=this_move).encode("UTF-8"))
+                        check_mate_sound.play()
+                    elif self.board.is_check():
+                        self.load(chess.svg.board(self.board, coordinates=False, size=600, check=self.board.king(self.board.turn), lastmove=this_move).encode("UTF-8"))
+                        check_sound.play()
+                    elif self.board.is_stalemate():
+                        self.load(chess.svg.board(self.board, coordinates=False, size=600, lastmove=this_move).encode("UTF-8"))
+                        stalemate_sound.play()
+                    else:
+                        self.load(chess.svg.board(self.board, coordinates=False, size=600, lastmove=this_move).encode("UTF-8"))
+                        piece_move_sound.play()
                 else:
+                    self.load(chess.svg.board(self.board, coordinates=False, size=600, ).encode("UTF-8"))
                     illegal_move_sound.play()
-                    self.load(chess.svg.board(self.board, coordinates=False, size=600,                   ).encode("UTF-8"))
                 self._square_selected = False
         #print(f"released: {event.pos()}")
         super().mouseReleaseEvent(event)
