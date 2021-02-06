@@ -47,4 +47,4 @@ Sample Screenshot
 |image1|
 
 
-.. |image1| image:: https://github.com/tank-overlord/chess4fun/raw/master/chess4fun/examples/chess4fun.png
+.. |image1| image:: https://github.com/tank-overlord/chess4fun/raw/main/chess4fun/examples/chess4fun.png
