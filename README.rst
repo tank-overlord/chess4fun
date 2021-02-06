@@ -2,7 +2,7 @@
 
 |BuildTest|_ |PyPi|_ |License|_ |Downloads|_ |PythonVersion|_
 
-.. |BuildTest| image:: https://travis-ci.com/tank-overlord/chess4fun.svg?branch=master
+.. |BuildTest| image:: https://travis-ci.com/tank-overlord/chess4fun.svg?branch=main
 .. _BuildTest: https://travis-ci.com/tank-overlord/chess4fun
 
 .. |PythonVersion| image:: https://img.shields.io/badge/python-3.6%20%7C%203.7%20%7C%203.8-blue
