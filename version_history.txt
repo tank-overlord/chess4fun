@@ -1,3 +1,8 @@
+Feb 07, 2021: version 0.0.0a9
+
+* Add buttons: "New", "Back", "Forward", "Advise" (the last one was not yet fully implemented)
+* Add opening identification
+
 Feb 06, 2021: version 0.0.0a8
 
 * First stable version with basic functions allows for simple two-person playing.

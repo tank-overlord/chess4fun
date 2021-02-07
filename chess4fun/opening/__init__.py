@@ -4,7 +4,6 @@
 #
 # License: LGPL-3.0
 
- 
-__version__ = "0.0.0a9"
+from ._opening import find_opening
 
-__license__ = "LGPL-3.0"
+__all__ = ["find_opening",]
