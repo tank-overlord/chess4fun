@@ -7,7 +7,7 @@
 import sys
 
 import PySide2
-from PySide2.QtWidgets import QApplication, QMainWindow, QWidget, QGridLayout, QDialog, QPushButton
+from PySide2.QtWidgets import QApplication, QMainWindow, QWidget, QGridLayout, QDialog, QPushButton, QTextBrowser
 from PySide2.QtSvg import QSvgWidget
 
 import chess
@@ -16,6 +16,7 @@ import chess.svg
 import pathlib
 import os
 
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 
 pygame.mixer.init()
@@ -131,12 +132,14 @@ class chess_board_widget(QSvgWidget):
         if self._square_selected:
             self._to_square = _square
             if self._from_square != self._to_square:
+
                 this_potential_promotion_move = chess.Move(from_square = self._from_square, to_square = self._to_square, promotion = chess.QUEEN)
                 if this_potential_promotion_move in self.board.legal_moves:
                     self.promotion_dialog.exec_()
                     this_move = chess.Move(from_square = self._from_square, to_square = self._to_square, promotion = self.promotion_dialog.promotion)
                 else:
                     this_move = chess.Move(from_square = self._from_square, to_square = self._to_square, promotion = None)
+
                 if this_move in self.board.legal_moves:
                     self.variation.append(this_move)
                     print(f"\nthis move (UCI): {this_move.uci()}\nSAN: {chess.Board().variation_san(self.variation)}")
@@ -173,8 +176,18 @@ class UI(QWidget):
         super().__init__(parent=app_window, *args, **kwargs)
         self.app_window = app_window
         self.chessboard_widget = chess_board_widget(parent=self)
+        self.new_pushbutton     = QPushButton('New',parent=self)
+        self.back_pushbutton    = QPushButton('Back',parent=self)
+        self.forward_pushbutton = QPushButton('Forward',parent=self)
+        self.advise_pushbutton  = QPushButton('Advise',parent=self)
+        self.text_browser = QTextBrowser(parent=self)
         self.layout = QGridLayout()
-        self.layout.addWidget(self.chessboard_widget, 0, 0, 1, 1)
+        self.layout.addWidget(self.chessboard_widget,  0, 0, 1, 4)
+        self.layout.addWidget(self.new_pushbutton,     1, 0, 1, 1)
+        self.layout.addWidget(self.back_pushbutton,    1, 1, 1, 1)
+        self.layout.addWidget(self.forward_pushbutton, 1, 2, 1, 1)
+        self.layout.addWidget(self.advise_pushbutton,  1, 3, 1, 1)
+        self.layout.addWidget(self.text_browser,       2, 0, 1, 4)
         self.setLayout(self.layout)
 
 
