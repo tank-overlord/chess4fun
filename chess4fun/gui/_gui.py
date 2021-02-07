@@ -170,7 +170,6 @@ class chess_board_widget(QSvgWidget):
         super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
-        global illegal_move_sound
         _file_idx =     (event.pos().x() // int(self.geometry().width()/8))    # 'A' - 'H', col
         _rank_idx = 7 - (event.pos().y() // int(self.geometry().height()/8))   # 1 - 8, row
         _square = chess.square(_file_idx, _rank_idx)
