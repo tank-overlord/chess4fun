@@ -5,8 +5,8 @@
 .. |BuildTest| image:: https://travis-ci.com/tank-overlord/chess4fun.svg?branch=main
 .. _BuildTest: https://travis-ci.com/tank-overlord/chess4fun
 
-.. |PythonVersion| image:: https://img.shields.io/badge/python-3.7%20%7C%203.8-blue
-.. _PythonVersion: https://img.shields.io/badge/python-3.7%20%7C%203.8-blue
+.. |PythonVersion| image:: https://img.shields.io/badge/python-3.7%20%7C%203.8%20%7C%203.9-blue
+.. _PythonVersion: https://img.shields.io/badge/python-3.7%20%7C%203.8%20%7C%203.9-blue
 
 .. |PyPi| image:: https://img.shields.io/pypi/v/chess4fun
 .. _PyPi: https://pypi.python.org/pypi/chess4fun
