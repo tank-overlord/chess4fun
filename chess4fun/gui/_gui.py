@@ -150,7 +150,11 @@ class chess_board_widget(QSvgWidget):
                 self.update_text_browser()
                 self.repaint()
 
-    def advise(self):
+    def analyze_past(self):
+        self.UI.text_browser.setHtml(f"Coming Soon!")
+        self.repaint()
+
+    def advise_next(self):
         self.UI.text_browser.setHtml(f"Coming Soon!")
         self.repaint()
 
@@ -230,19 +234,22 @@ class UI(QWidget):
         self.new_pushbutton     = QPushButton('New',parent=self)
         self.back_pushbutton    = QPushButton('Back',parent=self)
         self.forward_pushbutton = QPushButton('Forward',parent=self)
-        self.advise_pushbutton  = QPushButton('Advise',parent=self)
+        self.analyze_past_pushbutton = QPushButton('Analyze Past', parent=self)
+        self.advise_next_pushbutton  = QPushButton('Advise Next',parent=self)
         self.layout = QGridLayout()
-        self.layout.addWidget(self.chessboard_widget,  0, 0, 1, 4)
+        self.layout.addWidget(self.chessboard_widget,  0, 0, 1, 5)
         self.layout.addWidget(self.new_pushbutton,     1, 0, 1, 1)
         self.layout.addWidget(self.back_pushbutton,    1, 1, 1, 1)
         self.layout.addWidget(self.forward_pushbutton, 1, 2, 1, 1)
-        self.layout.addWidget(self.advise_pushbutton,  1, 3, 1, 1)
-        self.layout.addWidget(self.text_browser,       2, 0, 1, 4)
+        self.layout.addWidget(self.analyze_past_pushbutton, 1, 3, 1, 1)
+        self.layout.addWidget(self.advise_next_pushbutton,  1, 4, 1, 1)
+        self.layout.addWidget(self.text_browser,       2, 0, 1, 5)
         self.setLayout(self.layout)
         self.new_pushbutton.clicked.connect(self.chessboard_widget.new_game)
         self.back_pushbutton.clicked.connect(self.chessboard_widget.move_back)
         self.forward_pushbutton.clicked.connect(self.chessboard_widget.move_forward)
-        self.advise_pushbutton.clicked.connect(self.chessboard_widget.advise)
+        self.analyze_past_pushbutton.clicked.connect(self.chessboard_widget.analyze_past)
+        self.advise_next_pushbutton.clicked.connect(self.chessboard_widget.advise_next)
 
     
 
