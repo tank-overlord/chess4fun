@@ -29,8 +29,7 @@ Install
 
    pip install chess4fun
 
-| To use "Advise Next" and "Self Play" functions, a chess engine (e.g., https://stockfishchess.org/) must be in place first.
-| By default, the program will search for /usr/local/bin/stockfish for the chess engine.
+| To use "Advise Next" and "Self Play" functions, a chess engine (e.g., https://stockfishchess.org/) must be in place first. By default, the program will search for /usr/local/bin/stockfish for the chess engine.
 
 
 Execute
