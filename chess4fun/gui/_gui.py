@@ -58,9 +58,12 @@ preferences = {'chess_engine_exe_path': '/usr/local/bin/stockfish',
                'chess_engine_search_time': 5.0,
                'play_sound': True}
 
+# global
+self_play_thread_run = False
 
 class preferences_dialog(QDialog):
     def __init__(self, parent=None, *args, **kwargs):
+        global preferences
         super().__init__(parent=parent, *args, **kwargs)
         self.setWindowTitle("Preference Settings")
         self.app_window = parent
@@ -97,6 +100,7 @@ class preferences_dialog(QDialog):
         self.chess_engine_exe_path_filedialog.selectNameFilter("All files (*.*)")
 
     def _change_chess_engine_path(self):
+        global preferences
         self.chess_engine_exe_path_filedialog.exec_()
         selectedFiles = self.chess_engine_exe_path_filedialog.selectedFiles()
         if len(selectedFiles) > 0:
@@ -106,12 +110,14 @@ class preferences_dialog(QDialog):
             self.app_window.UI.self_play_pushbutton.setEnabled(True)
 
     def _change_chess_engine_search_time(self, new_text):
+        global preferences
         try:
             preferences['chess_engine_search_time'] = float(new_text)
         except:
             pass
 
     def _play_sound_state_changed(self, state: int):
+        global preferences
         preferences['play_sound'] = self.play_sound_checkbox.isChecked()
 
 
@@ -194,11 +200,13 @@ class self_play_thread(QThread):
         super().__init__(*args, **kwargs)
         self.board = board.copy()
     def run(self):
+        global self_play_thread_run
         while not self.board.is_game_over():
             result = asyncio.run(advise_move(self.board))
             self._signal.emit(result.move)
             self.board.push(result.move)
-
+            if not self_play_thread_run:
+                break
 
 class chess_board_widget(QSvgWidget):
     def __init__(self, parent=None, *args, **kwargs):
@@ -252,11 +260,21 @@ class chess_board_widget(QSvgWidget):
         self.repaint()
 
     def self_play(self):
-        self.selfplay_thread = self_play_thread(board = self.board)
-        self.selfplay_thread._signal.connect(self.make_this_move)
-        self.selfplay_thread.start()
+        global self_play_thread_run
+        if self.UI.self_play_pushbutton.text() == 'Self Play':
+            self.selfplay_thread = self_play_thread(board = self.board)
+            self.selfplay_thread._signal.connect(self.make_this_move)
+            self_play_thread_run = True
+            self.selfplay_thread.start()
+            self.UI.self_play_pushbutton.setText('Stop')
+            self.repaint()
+        elif self.UI.self_play_pushbutton.text() == 'Stop':
+            self_play_thread_run = False
+            self.UI.self_play_pushbutton.setText('Self Play')
+            self.repaint()
 
     def make_this_move(self, this_move: chess.Move = None):
+        global preferences
         if this_move not in self.board.legal_moves:
             raise RuntimeError(f"this_move {this_move} is illegal in the current position FEN: [{self.board.fen()}]")
         if self.last_legal_move_ply_index < len(self.move_stack):
@@ -328,6 +346,7 @@ class chess_board_widget(QSvgWidget):
         super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
+        global preferences
         _file_idx =     (event.pos().x() // int(self.geometry().width()/8))    # 'A' - 'H', col
         _rank_idx = 7 - (event.pos().y() // int(self.geometry().height()/8))   # 1 - 8, row
         _square = chess.square(_file_idx, _rank_idx)
