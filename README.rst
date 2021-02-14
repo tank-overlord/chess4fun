@@ -47,7 +47,9 @@ Have fun!!!
 Sample Screenshot
 -----------------
 |image2|
+|image3|
 
 
 .. |image1| image:: https://github.com/tank-overlord/chess4fun/raw/main/chess4fun/examples/opening_Ruy_Lopez.png
-.. |image2| image:: https://github.com/tank-overlord/chess4fun/raw/main/chess4fun/examples/chess4fun_20210214.png
+.. |image2| image:: https://github.com/tank-overlord/chess4fun/raw/main/chess4fun/examples/chess4fun_20210214_1.png
+.. |image3| image:: https://github.com/tank-overlord/chess4fun/raw/main/chess4fun/examples/chess4fun_20210214_2.png
