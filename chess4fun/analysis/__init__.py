@@ -4,6 +4,6 @@
 #
 # License: LGPL-3.0
 
-from ._gui import main, preferences
+from ._analysis import analyze_move, advise_move
 
-__all__ = ["main", "preferences"]
+__all__ = ["analyze_move", "advise_move",]

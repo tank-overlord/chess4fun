@@ -4,8 +4,9 @@
 #
 # License: LGPL-3.0
 
-import chess, chess.pgn, pathlib, os, pickle
+import chess, chess.pgn, pathlib, pickle
 
+curr_dir = pathlib.Path(__file__).parent.absolute()
 opening_book_filename = 'scideco_opening.pkl'
 
 def preprocess_ECO_book():
@@ -15,22 +16,18 @@ def preprocess_ECO_book():
     while "eco2pgn.py" and "scid.eco" can be downloaded from: https://sourceforge.net/projects/scidvspc/
     https://sourceforge.net/projects/scidvspc/files/source/scid_vs_pc-4.21.tgz/download (GPL licensed)
     """
-    #curr_dir = pathlib.Path(__file__).parent.absolute()
-    #os.chdir(curr_dir)
     opening_book_dict = {}
-    pgn = open("scideco.pgn") 
+    pgn = open(curr_dir / "scideco.pgn") 
     while True:
         game = chess.pgn.read_game(pgn)
         if game is None:
             break
         Mainline_moves_str = game.accept(chess.pgn.StringExporter(headers=False,variations=False,comments=False)).replace('\n', ' ')
         opening_book_dict[Mainline_moves_str] = {'ECO': game.headers.get('ECO', '?'),'Variation': game.headers.get('Variation', '?')}
-    with open(opening_book_filename, 'wb') as opening_book_file:
+    with open(curr_dir / opening_book_filename, 'wb') as opening_book_file:
         pickle.dump(opening_book_dict, opening_book_file)
 
-curr_dir = pathlib.Path(__file__).parent.absolute()
-os.chdir(curr_dir)
-with open(opening_book_filename, 'rb') as opening_book_file:
+with open(curr_dir / opening_book_filename, 'rb') as opening_book_file:
     opening_book_dict = pickle.load(opening_book_file)
 
 def find_opening(move_stack: list = None):

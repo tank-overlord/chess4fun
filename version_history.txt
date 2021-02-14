@@ -1,8 +1,16 @@
+Feb 14, 2021: version 0.0.0a10
+
+* Implemented: "Advise Next", "Self Play" buttons
+* Add "Analyze Prev" button (not implemented)
+* Add Preferences dialog (chess engine exe path, search time, play sound effect) 
+
+
 Feb 07, 2021: version 0.0.0a9
 
 * Add buttons: "New", "Back", "Forward", "Advise" (the last one was not yet fully implemented)
 * Add opening identification
 * Allow resizing the App window by stretching and maintaining accuracy of chess selection position with mouse clicking
+
 
 Feb 06, 2021: version 0.0.0a8
 
