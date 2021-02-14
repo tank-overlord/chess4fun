@@ -2,7 +2,7 @@ Feb 14, 2021: version 0.0.0a10
 
 * Implemented: "Advise Next", "Self Play" buttons
 * Add "Analyze Prev" button (not implemented)
-* Add Preferences dialog (chess engine exe path, search time, play sound effect) 
+* Add a Preferences dialog (including chess engine exe path, search time, play sound effect) 
 
 
 Feb 07, 2021: version 0.0.0a9
