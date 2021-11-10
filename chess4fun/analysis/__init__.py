@@ -4,6 +4,6 @@
 #
 # License: LGPL-3.0
 
-from ._analysis import analyze_move, advise_move
+from ._analysis import evaluate_position, advise_move
 
-__all__ = ["analyze_move", "advise_move",]
+__all__ = ["evaluate_position", "advise_move",]

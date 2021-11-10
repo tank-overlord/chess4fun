@@ -6,6 +6,11 @@
 
 import sys
 
+import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
+import io, base64, urllib
+
 import PySide2
 from PySide2.QtWidgets import QApplication, QMainWindow, QWidget, QGridLayout, QDialog, QPushButton, QTextBrowser, QAction, QLabel, QFileDialog, QLineEdit, QCheckBox
 from PySide2.QtSvg import QSvgWidget
@@ -19,7 +24,7 @@ import chess.engine
 asyncio.set_event_loop_policy(chess.engine.EventLoopPolicy()) # https://python-chess.readthedocs.io/en/latest/engine.html
 
 from ..opening import find_opening
-from ..analysis import advise_move
+from ..analysis import evaluate_position, advise_move
 
 import pathlib
 import os
@@ -54,14 +59,18 @@ insufficient_material_sound.set_volume(1.0)
 gameover_sound.set_volume(1.0)
 
 # preference settings (default)
-preferences = {'chess_engine_exe_path': '/usr/local/bin/stockfish', 
+preferences = {'chess_engine_exe_path': '/usr/local/bin/stockfish',
+               'chess_engine_hash_size': 4096, # MB
                'chess_engine_search_time': 5.0,
-               'play_sound': True}
+               'play_sound': True,
+               'evaluate_position': True}
 
 # global
 self_play_thread_run = False
+evaluation_history = []
+MATE_SCORE = 100000
 
-class preferences_dialog(QDialog):
+class PreferencesDialog(QDialog):
     def __init__(self, parent=None, *args, **kwargs):
         global preferences
         super().__init__(parent=parent, *args, **kwargs)
@@ -76,23 +85,37 @@ class preferences_dialog(QDialog):
         self.chess_engine_exe_path_pushbutton = QPushButton(f"{preferences['chess_engine_exe_path']}", parent=self)
         self.chess_engine_exe_path_pushbutton.clicked.connect(self._change_chess_engine_path)
         #
+        self.chess_engine_hash_size_MB_label = QLabel('- Chess engine hash size (MB):', parent=self)
+        self.chess_engine_hash_size_MB_lineedit = QLineEdit(parent=self)
+        self.chess_engine_hash_size_MB_lineedit.setText(f"{preferences['chess_engine_hash_size']}")
+        self.chess_engine_hash_size_MB_lineedit.textChanged.connect(self._change_chess_engine_hash_size)
+        #
         self.chess_engine_search_time_label = QLabel('- Chess engine search time (sec):', parent=self)
         self.chess_engine_search_time_lineedit = QLineEdit(parent=self)
         self.chess_engine_search_time_lineedit.setText(f"{preferences['chess_engine_search_time']}")
         self.chess_engine_search_time_lineedit.textChanged.connect(self._change_chess_engine_search_time)
         #
+        self.evaluate_position_label = QLabel('- Evaluation positions?', parent = self)
+        self.evaluate_position_checkbox = QCheckBox('Yes', parent=self)
+        self.evaluate_position_checkbox.setChecked(preferences['evaluate_position'])
+        self.evaluate_position_checkbox.stateChanged.connect(self._evaluate_position_checkbox_state_changed)
+        #
         self.play_sound_label = QLabel('- Play sound effect?', parent = self)
         self.play_sound_checkbox = QCheckBox('Yes', parent=self)
         self.play_sound_checkbox.setChecked(preferences['play_sound'])
-        self.play_sound_checkbox.stateChanged.connect(self._play_sound_state_changed)
+        self.play_sound_checkbox.stateChanged.connect(self._play_sound_checkbox_state_changed)
         #
         self.layout = QGridLayout()
         self.layout.addWidget(self.chess_engine_exe_path_label, 0, 0)
         self.layout.addWidget(self.chess_engine_exe_path_pushbutton, 0, 1)
-        self.layout.addWidget(self.chess_engine_search_time_label, 1, 0)
-        self.layout.addWidget(self.chess_engine_search_time_lineedit, 1, 1)
-        self.layout.addWidget(self.play_sound_label, 2, 0)
-        self.layout.addWidget(self.play_sound_checkbox, 2, 1)
+        self.layout.addWidget(self.chess_engine_hash_size_MB_label, 1, 0)
+        self.layout.addWidget(self.chess_engine_hash_size_MB_lineedit, 1, 1)
+        self.layout.addWidget(self.chess_engine_search_time_label, 2, 0)
+        self.layout.addWidget(self.chess_engine_search_time_lineedit, 2, 1)
+        self.layout.addWidget(self.evaluate_position_label, 3, 0)
+        self.layout.addWidget(self.evaluate_position_checkbox, 3, 1)
+        self.layout.addWidget(self.play_sound_label, 4, 0)
+        self.layout.addWidget(self.play_sound_checkbox, 4, 1)
         self.setLayout(self.layout)
         #
         self.chess_engine_exe_path_filedialog = QFileDialog(parent=self)
@@ -104,21 +127,41 @@ class preferences_dialog(QDialog):
         self.chess_engine_exe_path_filedialog.exec_()
         selectedFiles = self.chess_engine_exe_path_filedialog.selectedFiles()
         if len(selectedFiles) > 0:
-            preferences['chess_engine_exe_path'] = self.chess_engine_exe_path_filedialog.selectedFiles()[0]
+            try:
+                preferences['chess_engine_exe_path'] = self.chess_engine_exe_path_filedialog.selectedFiles()[0]
+            except:
+                raise RuntimeError('Error')
             self.chess_engine_exe_path_pushbutton.setText(f"{preferences['chess_engine_exe_path']}")
             self.app_window.UI.advise_next_pushbutton.setEnabled(True)
             self.app_window.UI.self_play_pushbutton.setEnabled(True)
 
+    def _change_chess_engine_hash_size(self, new_text):
+        global preferences
+        try:
+            preferences['chess_engine_hash_size'] = int(new_text)
+        except:
+            raise RuntimeError('Error')
+        
     def _change_chess_engine_search_time(self, new_text):
         global preferences
         try:
             preferences['chess_engine_search_time'] = float(new_text)
         except:
-            pass
+            raise RuntimeError('Error')
 
-    def _play_sound_state_changed(self, state: int):
+    def _play_sound_checkbox_state_changed(self, state: int):
         global preferences
-        preferences['play_sound'] = self.play_sound_checkbox.isChecked()
+        try:
+            preferences['play_sound'] = self.play_sound_checkbox.isChecked()
+        except:
+            raise RuntimeError('Error')
+
+    def _evaluate_position_checkbox_state_changed(self, state: int):
+        global preferences
+        try:
+            preferences['evaluate_position'] = self.evaluate_position_checkbox.isChecked()
+        except:
+            raise RuntimeError('Error')
 
 
 class app_window(QMainWindow):
@@ -131,13 +174,13 @@ class app_window(QMainWindow):
         #self.width = screen.availableGeometry().width() * 0.60
         #self.height = screen.availableGeometry().height() * 0.60
         # central widget
-        self.UI = UI(app_window=self, dpi=self.dpi)
-        self.setCentralWidget(self.UI)
+        self.main_UI = main_UI(app_window=self, dpi=self.dpi)
+        self.setCentralWidget(self.main_UI)
         self.setWindowTitle("Chess for fun!")
         self.setGeometry(0, 0, 600, 850)
         #print(self.geometry())
         #self.resize(self.width, self.height)
-        self.preferences_dialog = preferences_dialog(parent=self)
+        self.preferences_dialog = PreferencesDialog(parent=self)
         # preferences
         prefAct = QAction('&Preferences...', parent=self)
         prefAct.setShortcut('Ctrl+,')
@@ -154,6 +197,48 @@ class app_window(QMainWindow):
         self.AppMenu = self.menubar.addMenu('&App')
         self.AppMenu.addAction(prefAct)
         self.AppMenu.addAction(exitAct)
+
+
+class EvaluationDialog(QDialog):
+    def __init__(self, parent=None, *args, **kwargs):
+        super().__init__(parent=parent, *args, **kwargs)
+        self.resize(850,650)
+        self.setWindowTitle("Evaluation")
+        self.text_browser = QTextBrowser(parent=self)
+        self.layout = QGridLayout()
+        self.layout.addWidget(self.text_browser, 0, 0)
+        self.setLayout(self.layout)
+    
+    def update_plot(self):
+        #print(evaluation_history)
+        score_cap = 50
+        score_history = [0,]
+        for this_evaluation_result in evaluation_history:
+            this_score = this_evaluation_result['score'].pov(color = chess.WHITE).score(mate_score=MATE_SCORE) / 100
+            if abs(this_score) > score_cap:
+                this_score = this_score / abs(this_score) * score_cap
+            score_history.append(this_score)
+        fig, ax = plt.subplots(1,1,figsize=(8,6))
+        ax.set_ylim(bottom=-score_cap, top=score_cap)
+        ax.set_xlim(left=0, right=50)
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+        plt.plot(range(0,len(score_history)),score_history,'-o')
+        ax.set_ylabel("Score")
+        ax.set_xlabel('Moves')
+        ax.set_title("Score History (from White's Viewpoint)")
+        ax.grid(True)
+        #fig = plt.gcf() # get current figure
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        buf.seek(0)
+        string = base64.b64encode(buf.read())
+        base64_dict = {}
+        base64_dict['score_history'] = f"<img src=\"data:image/png;base64,{urllib.parse.quote(string)}\"/>"
+        plt.close(fig)
+        #
+        output_html_str = f"{base64_dict['score_history']}"
+        self.text_browser.setHtml(output_html_str)
+        self.repaint()         
 
 
 class PromotionDialog(QDialog):
@@ -196,45 +281,56 @@ class PromotionDialog(QDialog):
 
 class self_play_thread(QThread):
     _signal = Signal(chess.Move)
-    def __init__(self, board: chess.Board = None, *args, **kwargs):
+    def __init__(self, board: chess.Board = None, main_UI = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.board = board.copy()
+        self.main_UI = main_UI
     def run(self):
         global self_play_thread_run
         while not self.board.is_game_over():
+            if not self_play_thread_run:
+                break
             result = asyncio.run(advise_move(self.board))
             self._signal.emit(result.move)
             self.board.push(result.move)
-            if not self_play_thread_run:
-                break
+        self_play_thread_run = False
+        self.main_UI.self_play_pushbutton.setText('Self Play')
+
 
 class chess_board_widget(QSvgWidget):
     def __init__(self, parent=None, *args, **kwargs):
         super().__init__(parent=parent, *args, **kwargs)
-        self.UI = parent
+        self.main_UI = parent
         self.board_size = 600
         self.setGeometry(0, 0, self.board_size, self.board_size)
         self.promotion_dialog = PromotionDialog(parent=self)
         self.new_game()
         self.move_stack = []
         self.turn_dict = {chess.WHITE: 'White', chess.BLACK: 'Black'}
+        # evaluation dialog
+        global preferences
+        self.evaluation_dialog = EvaluationDialog(parent=self)
+        if preferences['evaluate_position']:
+            self.evaluation_dialog.show()
 
     def update_text_browser(self):
         opening = find_opening(self.move_stack[:self.last_legal_move_ply_index])
         san = chess.Board().variation_san(self.move_stack[:self.last_legal_move_ply_index])
         if opening is None:
-            self.UI.text_browser.setHtml(f"{san}")
+            self.main_UI.text_browser.setHtml(f"{san}")
         else:
-            self.UI.text_browser.setHtml(f"[ECO \"{opening['ECO']}\"]<br/>[Variation \"{opening['Variation']}\"]<br/><br/>{san}")
+            self.main_UI.text_browser.setHtml(f"[ECO \"{opening['ECO']}\"]<br/>[Variation \"{opening['Variation']}\"]<br/><br/>{san}")
 
     def new_game(self):
+        global evaluation_history
         self.board = chess.Board()
         self.load(chess.svg.board(self.board, coordinates=False, size=self.board_size).encode("UTF-8"))
         self._square_selected = False
         #self.move_stack = []
+        evaluation_history = []
         self.last_legal_move_ply_index = 0
         self.promotion_dialog.promotion = chess.QUEEN
-        self.UI.text_browser.setHtml("")
+        self.main_UI.text_browser.setHtml("")
         self.repaint()
 
     def move_back(self):
@@ -256,21 +352,23 @@ class chess_board_widget(QSvgWidget):
                 self.repaint()
 
     def analyze_prev(self):
-        self.UI.text_browser.setHtml(f"Coming Soon!")
+        self.main_UI.text_browser.setHtml(f"Coming Soon!")
         self.repaint()
 
     def self_play(self):
         global self_play_thread_run
-        if self.UI.self_play_pushbutton.text() == 'Self Play':
-            self.selfplay_thread = self_play_thread(board = self.board)
+        if self.board.is_game_over():
+            gameover_sound.play()
+        elif self.main_UI.self_play_pushbutton.text() == 'Self Play':
+            self.selfplay_thread = self_play_thread(board = self.board, main_UI = self.main_UI)
             self.selfplay_thread._signal.connect(self.make_this_move)
             self_play_thread_run = True
             self.selfplay_thread.start()
-            self.UI.self_play_pushbutton.setText('Stop')
+            self.main_UI.self_play_pushbutton.setText('Stop')
             self.repaint()
-        elif self.UI.self_play_pushbutton.text() == 'Stop':
+        elif self.main_UI.self_play_pushbutton.text() == 'Stop':
             self_play_thread_run = False
-            self.UI.self_play_pushbutton.setText('Self Play')
+            self.main_UI.self_play_pushbutton.setText('Self Play')
             self.repaint()
 
     def make_this_move(self, this_move: chess.Move = None):
@@ -305,7 +403,12 @@ class chess_board_widget(QSvgWidget):
             self.load(chess.svg.board(self.board, coordinates=False, size=self.board_size, check=self.board.king(self.board.turn), lastmove=this_move).encode("UTF-8"))
             if preferences['play_sound']:
                 check_sound.play()
-
+        # evaluate position
+        if preferences['evaluate_position']:
+            evaluation_results = asyncio.run(evaluate_position(self.board))
+            evaluation_history.append(evaluation_results)
+            self.evaluation_dialog.update_plot()
+            
     def advise_next(self):
         if self.board.is_game_over():
             html_str = "game over"
@@ -327,7 +430,7 @@ class chess_board_widget(QSvgWidget):
                             html_str += f" and promote it to {chess.piece_name(result.ponder.promotion)}"
             else:
                 html_str = ""
-        self.UI.text_browser.setHtml(html_str)
+        self.main_UI.text_browser.setHtml(html_str)
         self.repaint()
 
     def mouseMoveEvent(self, event):
@@ -371,7 +474,7 @@ class chess_board_widget(QSvgWidget):
         super().mouseReleaseEvent(event)
 
 
-class UI(QWidget):
+class main_UI(QWidget):
     def __init__(self, app_window=None, dpi=None, *args, **kwargs):
         super().__init__(parent=app_window, *args, **kwargs)
         self.app_window = app_window
@@ -381,17 +484,17 @@ class UI(QWidget):
         self.back_pushbutton    = QPushButton('Back',parent=self)
         self.forward_pushbutton = QPushButton('Forward',parent=self)
         self.analyze_prev_pushbutton = QPushButton('Analyze Prev', parent=self)
-        self.advise_next_pushbutton  = QPushButton('Advise Next',parent=self)
-        self.self_play_pushbutton = QPushButton('Self Play', parent=self)
+        self.advise_next_pushbutton  = QPushButton('Advise Next',  parent=self)
+        self.self_play_pushbutton    = QPushButton('Self Play',    parent=self)
         self.layout = QGridLayout()
-        self.layout.addWidget(self.chessboard_widget,  0, 0, 1, 5)
-        self.layout.addWidget(self.new_pushbutton,     1, 0, 1, 1)
-        self.layout.addWidget(self.back_pushbutton,    1, 1, 1, 1)
-        self.layout.addWidget(self.forward_pushbutton, 1, 2, 1, 1)
+        self.layout.addWidget(self.chessboard_widget,       0, 0, 1, 5)
+        self.layout.addWidget(self.new_pushbutton,          1, 0, 1, 1)
+        self.layout.addWidget(self.back_pushbutton,         1, 1, 1, 1)
+        self.layout.addWidget(self.forward_pushbutton,      1, 2, 1, 1)
         self.layout.addWidget(self.analyze_prev_pushbutton, 1, 3, 1, 1)
         self.layout.addWidget(self.advise_next_pushbutton,  1, 4, 1, 1)
-        self.layout.addWidget(self.self_play_pushbutton, 2, 0, 1, 1 )
-        self.layout.addWidget(self.text_browser,       3, 0, 1, 5)
+        self.layout.addWidget(self.self_play_pushbutton,    2, 0, 1, 1)
+        self.layout.addWidget(self.text_browser,            3, 0, 1, 5)
         self.setLayout(self.layout)
         self.new_pushbutton.clicked.connect(self.chessboard_widget.new_game)
         self.back_pushbutton.clicked.connect(self.chessboard_widget.move_back)
@@ -402,7 +505,7 @@ class UI(QWidget):
         #
         self.analyze_prev_pushbutton.setEnabled(False)
 
-    
+
 def main():
     app = QApplication(sys.argv)
     window = app_window(app=app)
